@@ -1,4 +1,4 @@
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
+import { HashRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { AppProvider } from './hooks/useApp';
 import { Dashboard } from './screens/Dashboard';
 import { PlanView } from './screens/PlanView';
@@ -10,7 +10,8 @@ import { WorkoutSession } from './screens/WorkoutSession';
 export default function App() {
   return (
     <AppProvider>
-      <BrowserRouter>
+      {/* HashRouter so routes work on GitHub Pages without server rewrites */}
+      <HashRouter>
         <div className="app-shell">
           <Routes>
             <Route path="/" element={<Welcome />} />
@@ -24,7 +25,7 @@ export default function App() {
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </div>
-      </BrowserRouter>
+      </HashRouter>
     </AppProvider>
   );
 }
