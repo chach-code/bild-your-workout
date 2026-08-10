@@ -3,15 +3,20 @@ import { Link, Navigate, useNavigate, useParams } from 'react-router-dom';
 import { Button } from '../components/Button';
 import { ExerciseCard } from '../components/ExerciseCard';
 import { ExerciseDetailModal } from '../components/ExerciseDetailModal';
+import { ExerciseTimer } from '../components/ExerciseTimer';
 import { useApp } from '../hooks/useApp';
 import { getTodaysWorkout } from '../logic/generatePlan';
-import type { CompletedExerciseLog, WorkoutDay } from '../types';
+import type { CompletedExerciseLog, PlannedExercise, WorkoutDay } from '../types';
 
 export function WorkoutSession() {
   const navigate = useNavigate();
   const { dayIndex: dayParam } = useParams();
   const { state, planForWeek, saveWorkoutLog } = useApp();
   const [detailId, setDetailId] = useState<string | null>(null);
+  const [timerTarget, setTimerTarget] = useState<{
+    key: string;
+    exercise: PlannedExercise;
+  } | null>(null);
   const [done, setDone] = useState(false);
   const [checked, setChecked] = useState<Record<string, boolean>>({});
 
@@ -37,9 +42,9 @@ export function WorkoutSession() {
   }
 
   if (sessionDay.type === 'rest') {
-    const next = planForWeek.days.find(
-      (d) => d.dayIndex > sessionDay.dayIndex && d.type !== 'rest',
-    ) ?? planForWeek.days.find((d) => d.type !== 'rest');
+    const next =
+      planForWeek.days.find((d) => d.dayIndex > sessionDay.dayIndex && d.type !== 'rest') ??
+      planForWeek.days.find((d) => d.type !== 'rest');
 
     return (
       <main className="page fade-in">
@@ -65,6 +70,10 @@ export function WorkoutSession() {
 
   const toggle = (key: string) => {
     setChecked((c) => ({ ...c, [key]: !c[key] }));
+  };
+
+  const markComplete = (key: string) => {
+    setChecked((c) => ({ ...c, [key]: true }));
   };
 
   const finish = () => {
@@ -149,6 +158,7 @@ export function WorkoutSession() {
                 checked={!!checked[key]}
                 onToggle={() => toggle(key)}
                 onHowTo={() => setDetailId(ex.exerciseId)}
+                onStartTimer={() => setTimerTarget({ key, exercise: ex })}
               />
             </div>
           );
@@ -164,6 +174,14 @@ export function WorkoutSession() {
 
       {detailId ? (
         <ExerciseDetailModal exerciseId={detailId} onClose={() => setDetailId(null)} />
+      ) : null}
+
+      {timerTarget ? (
+        <ExerciseTimer
+          exercise={timerTarget.exercise}
+          onClose={() => setTimerTarget(null)}
+          onComplete={() => markComplete(timerTarget.key)}
+        />
       ) : null}
     </main>
   );

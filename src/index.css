@@ -499,6 +499,162 @@ h2 {
   color: var(--accent-2);
 }
 
+.exercise-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+/* Exercise timer */
+.timer-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  background: rgba(4, 14, 11, 0.96);
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+}
+
+.timer-overlay.is-leadin {
+  background: radial-gradient(circle at 50% 30%, rgba(61, 224, 195, 0.18), rgba(4, 14, 11, 0.97) 55%);
+}
+
+.timer-overlay.is-work {
+  background: radial-gradient(circle at 50% 30%, rgba(184, 242, 58, 0.2), rgba(4, 14, 11, 0.97) 55%);
+}
+
+.timer-overlay.is-rest {
+  background: radial-gradient(circle at 50% 30%, rgba(120, 160, 255, 0.18), rgba(4, 14, 11, 0.97) 55%);
+}
+
+.timer-overlay__inner {
+  width: min(560px, 100%);
+  text-align: center;
+  position: relative;
+}
+
+.timer-close {
+  position: absolute;
+  top: 0;
+  right: 0;
+}
+
+.timer-setup h2,
+.timer-finished h2 {
+  font-size: clamp(2.2rem, 8vw, 3.4rem);
+  margin: 0.2rem 0 0.5rem;
+}
+
+.timer-summary {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--accent);
+  margin: 0.75rem 0 1.25rem;
+}
+
+.timer-settings {
+  display: grid;
+  gap: 0.85rem;
+  text-align: left;
+  margin-bottom: 1.25rem;
+  padding: 1rem;
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  background: rgba(18, 48, 40, 0.7);
+}
+
+.timer-setting {
+  display: grid;
+  gap: 0.4rem;
+  font-weight: 600;
+}
+
+.timer-setting--row {
+  grid-template-columns: 1fr auto;
+  align-items: center;
+}
+
+.timer-setting select {
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(8, 24, 19, 0.9);
+  color: var(--text);
+  padding: 0.7rem 0.85rem;
+}
+
+.timer-setting input[type='checkbox'] {
+  width: 1.25rem;
+  height: 1.25rem;
+  accent-color: var(--accent);
+}
+
+.timer-actions {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.timer-actions--row {
+  grid-template-columns: 1fr 1fr;
+  margin-top: 1rem;
+}
+
+.timer-exercise {
+  margin: 0;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.timer-phase-label {
+  margin: 0.35rem 0 0;
+  font-family: var(--font-display);
+  font-size: clamp(1.8rem, 6vw, 2.6rem);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.timer-round {
+  margin: 0.2rem 0 0;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.timer-clock {
+  margin: 0.6rem 0 0.4rem;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: clamp(5.5rem, 28vw, 9rem);
+  line-height: 0.9;
+  letter-spacing: 0.02em;
+  color: var(--accent);
+}
+
+.timer-overlay.is-rest .timer-clock {
+  color: #9ec0ff;
+}
+
+.timer-overlay.is-leadin .timer-clock {
+  color: var(--accent-2);
+}
+
+.timer-progress {
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+  overflow: hidden;
+  margin: 0.75rem 0;
+}
+
+.timer-progress__fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent-2), var(--accent));
+  transition: width 0.1s linear;
+}
+
+.timer-finished {
+  padding-top: 2rem;
+}
+
 .exercise-card.is-interactive {
   cursor: pointer;
 }

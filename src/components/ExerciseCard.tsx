@@ -1,4 +1,5 @@
 import { getExerciseById } from '../data/exercises';
+import { isTimedExercise } from '../logic/parseTimer';
 import type { PlannedExercise } from '../types';
 import { Button } from './Button';
 
@@ -7,6 +8,7 @@ interface Props {
   checked?: boolean;
   onToggle?: () => void;
   onHowTo?: () => void;
+  onStartTimer?: () => void;
   showCheckbox?: boolean;
 }
 
@@ -15,10 +17,12 @@ export function ExerciseCard({
   checked = false,
   onToggle,
   onHowTo,
+  onStartTimer,
   showCheckbox = false,
 }: Props) {
   const details = getExerciseById(exercise.exerciseId);
   const muscles = details?.muscles.map((m) => m.replace('_', ' ')).join(', ');
+  const showTimer = !!onStartTimer && isTimedExercise(exercise);
 
   return (
     <article
@@ -54,19 +58,34 @@ export function ExerciseCard({
           {exercise.notes ? <p className="exercise-card__notes">{exercise.notes}</p> : null}
         </div>
       </div>
-      {onHowTo ? (
-        <Button
-          variant="secondary"
-          size="sm"
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            onHowTo();
-          }}
-        >
-          How to do it
-        </Button>
-      ) : null}
+      <div className="exercise-card__actions">
+        {showTimer ? (
+          <Button
+            variant="primary"
+            size="sm"
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onStartTimer?.();
+            }}
+          >
+            Start timer
+          </Button>
+        ) : null}
+        {onHowTo ? (
+          <Button
+            variant="secondary"
+            size="sm"
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onHowTo();
+            }}
+          >
+            How to do it
+          </Button>
+        ) : null}
+      </div>
     </article>
   );
 }
