@@ -10,6 +10,7 @@ permissions:
   pages: write
   id-token: write
 
+# Cancel in-progress deploys so an older run cannot overwrite a newer one
 concurrency:
   group: pages
   cancel-in-progress: true
@@ -32,6 +33,22 @@ jobs:
 
       - name: Build
         run: npm run build
+
+      - name: Verify production build
+        run: |
+          test -f dist/index.html
+          if grep -q 'src/main.tsx' dist/index.html; then
+            echo "ERROR: dist/index.html still references /src/main.tsx (dev HTML)."
+            cat dist/index.html
+            exit 1
+          fi
+          if ! grep -q '/bild-your-workout/assets/' dist/index.html; then
+            echo "ERROR: dist/index.html is missing the GitHub Pages base path."
+            cat dist/index.html
+            exit 1
+          fi
+          echo "Build looks correct:"
+          cat dist/index.html
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
