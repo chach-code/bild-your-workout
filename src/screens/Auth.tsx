@@ -32,7 +32,12 @@ export function AuthScreen() {
       mode === 'signin' ? await signIn(email.trim(), password) : await signUp(email.trim(), password);
     setBusy(false);
     if (!result.ok) {
-      setError(result.message ?? 'Something went wrong.');
+      const raw = result.message ?? 'Something went wrong.';
+      setError(
+        raw.toLowerCase().includes('invalid login')
+          ? 'No account found for that email, or the password is wrong. Use Sign up first if you have not created an account yet.'
+          : raw,
+      );
       return;
     }
     if (result.message) setMessage(result.message);
