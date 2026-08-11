@@ -122,7 +122,7 @@ h2 {
   min-height: 100vh;
   display: grid;
   align-items: end;
-  padding-bottom: 2.5rem;
+  padding-bottom: clamp(5rem, 16vh, 9rem);
   overflow: hidden;
 }
 
