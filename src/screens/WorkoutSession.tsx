@@ -83,15 +83,14 @@ export function WorkoutSession() {
       completed: !!checked[`${e.exerciseId}-${i}`],
     }));
 
-    saveWorkoutLog({
-      id: `session_${Date.now()}`,
+    void saveWorkoutLog({
+      id: crypto.randomUUID(),
       date: new Date().toISOString(),
       dayIndex: sessionDay.dayIndex,
       dayTitle: sessionDay.title,
       completed: true,
       exercises,
-    });
-    setDone(true);
+    }).then(() => setDone(true));
   };
 
   if (done) {

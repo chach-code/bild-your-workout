@@ -2,9 +2,11 @@ import { Navigate } from 'react-router-dom';
 import { Button } from '../components/Button';
 import { Navigation } from '../components/Navigation';
 import { useApp } from '../hooks/useApp';
+import { useAuth } from '../hooks/useAuth';
 
 export function ProgressView() {
-  const { state, resetAll } = useApp();
+  const { state, resetAll, syncError } = useApp();
+  const { user, signOut } = useAuth();
 
   if (!state.plan) {
     return <Navigate to="/" replace />;
@@ -87,12 +89,20 @@ export function ProgressView() {
       </section>
 
       <section className="section">
+        {user ? <p className="muted">Signed in as {user.email}</p> : null}
+        {syncError ? <p className="form-error">{syncError}</p> : null}
+        <Button variant="secondary" fullWidth onClick={() => void signOut()}>
+          Log out
+        </Button>
+      </section>
+
+      <section className="section">
         <Button
           variant="danger"
           fullWidth
           onClick={() => {
             if (confirm('Reset your plan and progress? This cannot be undone.')) {
-              resetAll();
+              void resetAll();
             }
           }}
         >

@@ -216,8 +216,7 @@ export function Questionnaire() {
     };
     // Brief pause so the "building" state is noticeable
     window.setTimeout(() => {
-      createPlan(profile);
-      navigate('/dashboard');
+      void createPlan(profile).then(() => navigate('/dashboard'));
     }, 450);
   };
 

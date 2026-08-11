@@ -4,11 +4,13 @@ import { Navigation } from '../components/Navigation';
 import { WorkoutCard } from '../components/WorkoutCard';
 import { GOALS, getSportConfig } from '../data/sports';
 import { useApp } from '../hooks/useApp';
+import { useAuth } from '../hooks/useAuth';
 import { getTodayDayIndex, getTodaysWorkout } from '../logic/generatePlan';
 import { completedDayIndexesThisWeek } from '../logic/schedule';
 
 export function Dashboard() {
-  const { state, planForWeek } = useApp();
+  const { state, planForWeek, syncError } = useApp();
+  const { user } = useAuth();
 
   if (!state.plan || !planForWeek || !state.profile) {
     return <Navigate to="/" replace />;
@@ -28,6 +30,8 @@ export function Dashboard() {
         <p className="eyebrow">My Workout Plan</p>
         <h1>Ready when you are</h1>
         <p className="lede">{planForWeek.summary}.</p>
+        {user ? <p className="muted">Signed in as {user.email}</p> : null}
+        {syncError ? <p className="form-error">{syncError}</p> : null}
       </header>
 
       <section className="panel today-panel">

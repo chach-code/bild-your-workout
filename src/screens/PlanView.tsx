@@ -126,7 +126,7 @@ export function PlanView() {
               key={w}
               type="button"
               className={`week-btn ${state.currentWeek === w ? 'is-active' : ''}`}
-              onClick={() => setWeek(w)}
+              onClick={() => void setWeek(w)}
             >
               Week {w}
             </button>
