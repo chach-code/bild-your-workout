@@ -7,4 +7,11 @@ export default defineConfig({
   // Required for GitHub Pages project site:
   // https://chach-code.github.io/bild-your-workout/
   base: '/bild-your-workout/',
+  server: {
+    port: 3000,
+    strictPort: false,
+  },
+  preview: {
+    port: 3000,
+  },
 })

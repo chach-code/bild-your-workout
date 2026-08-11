@@ -4,13 +4,13 @@ import { Button } from '../components/Button';
 import { useAuth } from '../hooks/useAuth';
 
 export function AuthScreen() {
-  const { user, signIn, signUp } = useAuth();
+  const { user, signIn, signUp, error: authError } = useAuth();
   const [mode, setMode] = useState<'signin' | 'signup'>('signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
-  const [error, setError] = useState('');
+  const [error, setError] = useState(authError);
 
   if (user) {
     return <Navigate to="/" replace />;
@@ -33,11 +33,10 @@ export function AuthScreen() {
     setBusy(false);
     if (!result.ok) {
       const raw = result.message ?? 'Something went wrong.';
-      setError(
-        raw.toLowerCase().includes('invalid login')
-          ? 'No account found for that email, or the password is wrong. Use Sign up first if you have not created an account yet.'
-          : raw,
-      );
+      if (raw.toLowerCase().includes('already has an account')) {
+        setMode('signin');
+      }
+      setError(raw);
       return;
     }
     if (result.message) setMessage(result.message);
@@ -48,7 +47,8 @@ export function AuthScreen() {
       <p className="eyebrow">{mode === 'signin' ? 'Welcome back' : 'Create account'}</p>
       <h1>{mode === 'signin' ? 'Sign in' : 'Sign up'}</h1>
       <p className="lede">
-        Your questionnaire, workout plan, and progress stay saved to your account.
+        Your questionnaire, workout plan, and progress stay saved to your account. Use your email
+        and password here — you do not need a confirmation email.
       </p>
 
       <form

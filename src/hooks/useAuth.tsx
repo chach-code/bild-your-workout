@@ -8,7 +8,12 @@ import {
   type ReactNode,
 } from 'react';
 import type { Session, User } from '@supabase/supabase-js';
-import { authRedirectTo, isSupabaseConfigured, supabase } from '../lib/supabase';
+import {
+  authRedirectTo,
+  consumeAuthCallbackError,
+  isSupabaseConfigured,
+  supabase,
+} from '../lib/supabase';
 
 interface AuthContextValue {
   user: User | null;
@@ -25,7 +30,7 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [error, setError] = useState(() => consumeAuthCallbackError());
 
   useEffect(() => {
     let mounted = true;
@@ -54,8 +59,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
     if (signInError) {
-      setError(signInError.message);
-      return { ok: false, message: signInError.message };
+      const raw = signInError.message;
+      const lower = raw.toLowerCase();
+      const message = lower.includes('email not confirmed')
+        ? 'This account is ready. Use Sign in with your password — no email is needed.'
+        : lower.includes('invalid login')
+          ? 'No account found for that email, or the password is wrong.'
+          : raw;
+      setError(message);
+      return { ok: false, message };
     }
     return { ok: true };
   }, []);
@@ -71,17 +83,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       options: { emailRedirectTo: authRedirectTo() },
     });
     if (signUpError) {
+      const alreadyRegistered = signUpError.message.toLowerCase().includes('already');
+      if (alreadyRegistered) {
+        return signIn(email, password);
+      }
       setError(signUpError.message);
       return { ok: false, message: signUpError.message };
     }
     if (!data.session) {
-      return {
-        ok: true,
-        message: 'Check your email to confirm your account, then sign in.',
-      };
+      const { error: followUpError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+      if (!followUpError) return { ok: true };
+      const message =
+        'This email already has an account. Switch to Sign in and use your password. No email will be sent.';
+      setError(message);
+      return { ok: false, message };
     }
     return { ok: true };
-  }, []);
+  }, [signIn]);
 
   const signOut = useCallback(async () => {
     setError('');

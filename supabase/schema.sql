@@ -103,3 +103,47 @@ create policy "Users can update own sessions"
 create policy "Users can delete own sessions"
   on public.workout_sessions for delete to authenticated
   using ((select auth.uid()) = user_id);
+
+-- Confirmation emails default to localhost:3000. Auto-confirm so sign-in works without that link.
+create schema if not exists private;
+revoke all on schema private from public, anon, authenticated;
+
+create or replace function private.autoconfirm_auth_user()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  new.email_confirmed_at := coalesce(new.email_confirmed_at, now());
+  return new;
+end;
+$$;
+
+create or replace function private.autoconfirm_auth_identity()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  new.identity_data := coalesce(new.identity_data, '{}'::jsonb)
+    || jsonb_build_object('email_verified', true);
+  return new;
+end;
+$$;
+
+revoke all on function private.autoconfirm_auth_user() from public, anon, authenticated;
+revoke all on function private.autoconfirm_auth_identity() from public, anon, authenticated;
+
+drop trigger if exists on_auth_user_autoconfirm on auth.users;
+create trigger on_auth_user_autoconfirm
+  before insert on auth.users
+  for each row
+  execute function private.autoconfirm_auth_user();
+
+drop trigger if exists on_auth_identity_autoconfirm on auth.identities;
+create trigger on_auth_identity_autoconfirm
+  before insert on auth.identities
+  for each row
+  execute function private.autoconfirm_auth_identity();
