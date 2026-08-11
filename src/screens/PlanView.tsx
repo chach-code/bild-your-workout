@@ -3,17 +3,20 @@ import { Link, Navigate, useNavigate, useParams } from 'react-router-dom';
 import { Button } from '../components/Button';
 import { ExerciseCard } from '../components/ExerciseCard';
 import { ExerciseDetailModal } from '../components/ExerciseDetailModal';
+import { ExerciseTimer } from '../components/ExerciseTimer';
 import { Navigation } from '../components/Navigation';
 import { WorkoutCard } from '../components/WorkoutCard';
 import { useApp } from '../hooks/useApp';
 import { getTodayDayIndex } from '../logic/generatePlan';
 import { completedDayIndexesThisWeek } from '../logic/schedule';
+import type { PlannedExercise } from '../types';
 
 export function PlanView() {
   const navigate = useNavigate();
   const { dayIndex } = useParams();
   const { state, planForWeek, setWeek } = useApp();
   const [detailId, setDetailId] = useState<string | null>(null);
+  const [timerExercise, setTimerExercise] = useState<PlannedExercise | null>(null);
 
   if (!state.plan || !planForWeek) {
     return <Navigate to="/" replace />;
@@ -52,6 +55,7 @@ export function PlanView() {
                   key={`w-${ex.exerciseId}`}
                   exercise={ex}
                   onHowTo={() => setDetailId(ex.exerciseId)}
+                  onStartTimer={() => setTimerExercise(ex)}
                 />
               ))}
             </section>
@@ -62,6 +66,7 @@ export function PlanView() {
                   key={`m-${ex.exerciseId}`}
                   exercise={ex}
                   onHowTo={() => setDetailId(ex.exerciseId)}
+                  onStartTimer={() => setTimerExercise(ex)}
                 />
               ))}
             </section>
@@ -72,6 +77,7 @@ export function PlanView() {
                   key={`c-${ex.exerciseId}`}
                   exercise={ex}
                   onHowTo={() => setDetailId(ex.exerciseId)}
+                  onStartTimer={() => setTimerExercise(ex)}
                 />
               ))}
             </section>
@@ -92,6 +98,13 @@ export function PlanView() {
         )}
 
         {detailId ? <ExerciseDetailModal exerciseId={detailId} onClose={() => setDetailId(null)} /> : null}
+        {timerExercise ? (
+          <ExerciseTimer
+            exercise={timerExercise}
+            onClose={() => setTimerExercise(null)}
+            onComplete={() => setTimerExercise(null)}
+          />
+        ) : null}
         <Navigation />
       </main>
     );

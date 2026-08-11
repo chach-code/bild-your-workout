@@ -12,7 +12,41 @@ import type {
 } from '../types';
 
 const WARMUP_POOL = ['jumping_jacks', 'high_knees', 'arm_circles', 'hip_openers', 'bodyweight_squat', 'cat_cow'];
+const SENIOR_WARMUP_POOL = ['arm_circles', 'cat_cow', 'hip_openers', 'bodyweight_squat', 'glute_bridge', 'bird_dog'];
 const COOLDOWN_POOL = ['child_pose', 'quad_stretch', 'hamstring_stretch', 'cat_cow', 'arm_circles'];
+
+/** Higher-impact moves to avoid for older adults. */
+const HIGH_IMPACT_IDS = new Set([
+  'box_jump',
+  'squat_jump',
+  'broad_jump',
+  'burpee',
+  'lateral_bound',
+  'skater_hops',
+  'sprint_intervals',
+  'wall_balls_or_jump_reach',
+  'shuttle_runs',
+  'mountain_climbers',
+]);
+
+type AgeBand = 'youth' | 'adult' | 'mature' | 'senior' | 'elder';
+
+function ageBand(age: number): AgeBand {
+  if (age > 0 && age < 18) return 'youth';
+  if (age >= 80) return 'elder';
+  if (age >= 65) return 'senior';
+  if (age >= 50) return 'mature';
+  return 'adult';
+}
+
+function isYouth(age: number): boolean {
+  return ageBand(age) === 'youth';
+}
+
+function isOlderAdult(age: number): boolean {
+  const band = ageBand(age);
+  return band === 'mature' || band === 'senior' || band === 'elder';
+}
 
 type SessionFocus =
   | 'lower_power'
@@ -25,10 +59,6 @@ type SessionFocus =
   | 'lower_strength'
   | 'active_recovery';
 
-function isYouth(age: number): boolean {
-  return age > 0 && age < 18;
-}
-
 function hasEquipment(owned: Equipment[], required: Equipment[]): boolean {
   // If an exercise lists "none", it can be done with bodyweight / no gear.
   if (required.includes('none')) return true;
@@ -39,6 +69,12 @@ function hasEquipment(owned: Equipment[], required: Equipment[]): boolean {
 
 function exerciseAvailable(ex: Exercise, profile: UserProfile): boolean {
   if (isYouth(profile.age) && !ex.youthSafe) return false;
+
+  const band = ageBand(profile.age);
+  if ((band === 'senior' || band === 'elder') && HIGH_IMPACT_IDS.has(ex.id)) return false;
+  if (band === 'elder' && (ex.category === 'plyometric' || ex.category === 'power')) return false;
+  if (band === 'mature' && ['burpee', 'box_jump', 'sprint_intervals'].includes(ex.id)) return false;
+
   if (!ex.level.includes(profile.fitnessLevel)) {
     // beginners can use beginner; intermediate can use beginner+intermediate; advanced all matched already
     if (profile.fitnessLevel === 'beginner' && !ex.level.includes('beginner')) return false;
@@ -112,6 +148,13 @@ function scoreExercise(ex: Exercise, profile: UserProfile, focus: SessionFocus):
   if (focusText.includes('speed') && (ex.category === 'agility' || ex.id.includes('sprint'))) score += 2;
   if (focusText.includes('arm') || focusText.includes('shoulder') || focusText.includes('throw')) {
     if (ex.id.includes('band') || ex.muscles.includes('shoulders') || ex.muscles.includes('rotational')) score += 2;
+  }
+
+  // Prefer joint-friendlier choices for older adults
+  if (isOlderAdult(profile.age)) {
+    if (['strength', 'core', 'mobility'].includes(ex.category)) score += 2;
+    if (HIGH_IMPACT_IDS.has(ex.id) || ex.category === 'plyometric') score -= 6;
+    if (ex.id.includes('sprint')) score -= 4;
   }
 
   return score;
@@ -264,10 +307,51 @@ function progressionFor(
   });
 }
 
+function scaleTimedReps(reps: string, factor: number): string {
+  return reps.replace(/(\d+)\s*(sec|secs|second|seconds|min|mins|minute|minutes)/gi, (_, n, unit) => {
+    const raw = Number(n);
+    const scaled = unit.toLowerCase().startsWith('min')
+      ? Math.max(5, Math.round(raw * factor))
+      : Math.max(10, Math.round(raw * factor));
+    return `${scaled} ${unit}`;
+  });
+}
+
+function forceStrengthReps(ex: Exercise, sets: number, reps: string, band: AgeBand): { sets: number; reps: string } {
+  // Strength / most plyometrics should be sets × reps, never long timed sets
+  const wantsReps =
+    ['strength', 'plyometric', 'power'].includes(ex.category) ||
+    ['push_up', 'sit_up', 'bodyweight_squat', 'walking_lunge', 'inverted_row'].includes(ex.id);
+
+  if (!wantsReps) return { sets, reps };
+  if (!ex.isTimed && !/sec|min/i.test(reps)) return { sets, reps };
+
+  // Convert accidental timed strength work into clear rep schemes
+  let repCount = 10;
+  const m = reps.match(/(\d+)/);
+  if (m) repCount = Number(m[1]);
+  if (ex.defaultReps && !/sec|min/i.test(ex.defaultReps)) {
+    const d = ex.defaultReps.match(/(\d+)/);
+    if (d) repCount = Number(d[1]);
+  }
+
+  if (band === 'elder') {
+    return { sets: Math.min(sets, 2), reps: String(Math.max(5, Math.min(repCount, 8))) };
+  }
+  if (band === 'senior') {
+    return { sets: Math.min(sets, 3), reps: String(Math.max(6, Math.min(repCount, 10))) };
+  }
+  if (band === 'mature') {
+    return { sets, reps: String(Math.max(6, Math.min(repCount, 12))) };
+  }
+  return { sets, reps: String(repCount) };
+}
+
 function adjustPrescription(ex: Exercise, profile: UserProfile): PlannedExercise {
   let sets = ex.defaultSets;
   let reps = ex.defaultReps;
   let rest = ex.defaultRest;
+  const band = ageBand(profile.age);
 
   if (profile.fitnessLevel === 'beginner') {
     sets = Math.max(2, sets - 1);
@@ -282,15 +366,44 @@ function adjustPrescription(ex: Exercise, profile: UserProfile): PlannedExercise
     sets = Math.min(sets + 1, 5);
   }
 
-  if (isYouth(profile.age)) {
+  if (band === 'youth') {
     sets = Math.min(sets, 3);
     rest = Math.max(rest, 45);
+  } else if (band === 'mature') {
+    sets = Math.max(2, sets - 1);
+    rest = Math.min(rest + 15, 135);
+  } else if (band === 'senior') {
+    sets = Math.max(2, Math.min(sets - 1, 3));
+    rest = Math.min(rest + 25, 150);
+    if (ex.isTimed || /sec|min/i.test(reps)) {
+      reps = scaleTimedReps(reps, 0.75);
+    } else {
+      const n = reps.match(/(\d+)/);
+      if (n) reps = reps.replace(n[1], String(Math.max(6, Number(n[1]) - 2)));
+    }
+  } else if (band === 'elder') {
+    sets = Math.min(2, sets);
+    rest = Math.min(rest + 35, 180);
+    if (ex.isTimed || /sec|min/i.test(reps)) {
+      reps = scaleTimedReps(reps, 0.6);
+    } else {
+      const n = reps.match(/(\d+)/);
+      if (n) reps = reps.replace(n[1], String(Math.max(5, Number(n[1]) - 4)));
+    }
   }
+
+  // Keep strength-style work as sets × reps (e.g. 3 × 10), not timed minutes
+  const forced = forceStrengthReps(ex, sets, reps, band);
+  sets = forced.sets;
+  reps = forced.reps;
 
   // Weight progression note for loaded moves
   let notes: string | undefined;
   if (ex.equipment.some((e) => ['dumbbells', 'barbell', 'bands'].includes(e))) {
-    notes = 'When you can complete all sets with good form, increase the weight slightly next week.';
+    notes =
+      band === 'elder' || band === 'senior'
+        ? 'Use a light, comfortable weight and prioritize smooth form over load.'
+        : 'When you can complete all sets with good form, increase the weight slightly next week.';
   }
 
   const weekProgression = progressionFor(sets, reps, profile.fitnessLevel, isYouth(profile.age));
@@ -307,16 +420,55 @@ function adjustPrescription(ex: Exercise, profile: UserProfile): PlannedExercise
   };
 }
 
-function buildBlockFromIds(ids: string[], profile: UserProfile): PlannedExercise[] {
+/** Warm-ups are always timed so the Start timer button appears. */
+function warmUpTiming(id: string, band: AgeBand): string {
+  const short = band === 'elder' || band === 'senior';
+  const map: Record<string, string> = {
+    jumping_jacks: short ? '20 sec' : '30 sec',
+    high_knees: short ? '20 sec' : '30 sec',
+    arm_circles: short ? '15 sec each way' : '20 sec each way',
+    hip_openers: short ? '30 sec' : '40 sec',
+    bodyweight_squat: short ? '20 sec' : '30 sec',
+    cat_cow: short ? '30 sec' : '40 sec',
+    glute_bridge: short ? '20 sec' : '30 sec',
+    bird_dog: short ? '20 sec each side' : '25 sec each side',
+  };
+  return map[id] ?? (short ? '20 sec' : '30 sec');
+}
+
+function buildWarmUpBlock(profile: UserProfile): PlannedExercise[] {
+  const band = ageBand(profile.age);
+  const pool = band === 'senior' || band === 'elder' ? SENIOR_WARMUP_POOL : WARMUP_POOL;
+  const count = profile.duration <= 15 ? 3 : 4;
+  const ids = pool.filter((id) => {
+    const ex = getExerciseById(id);
+    return ex && exerciseAvailable(ex, profile);
+  }).slice(0, count);
+
   return ids
     .map((id) => getExerciseById(id))
-    .filter((ex): ex is Exercise => !!ex && exerciseAvailable(ex, profile))
+    .filter((ex): ex is Exercise => !!ex)
+    .map((ex) => ({
+      exerciseId: ex.id,
+      name: ex.name,
+      sets: 1,
+      reps: warmUpTiming(ex.id, band),
+      restSeconds: 0,
+    }));
+}
+
+function buildCoolDownBlock(profile: UserProfile): PlannedExercise[] {
+  const band = ageBand(profile.age);
+  const factor = band === 'elder' ? 0.75 : band === 'senior' ? 0.85 : 1;
+  return COOLDOWN_POOL.slice(0, 3)
+    .map((id) => getExerciseById(id))
+    .filter((ex): ex is Exercise => !!ex)
     .map((ex) => {
       const planned = adjustPrescription(ex, profile);
-      // warm-up / cool-down: single short set
       return {
         ...planned,
         sets: 1,
+        reps: scaleTimedReps(ex.defaultReps, factor),
         restSeconds: 0,
         weekProgression: undefined,
       };
@@ -342,10 +494,13 @@ function chooseFocusPattern(profile: UserProfile): SessionFocus[] {
   const sport = profile.sport;
   const goals = new Set(profile.goals);
   const days = profile.daysPerWeek;
+  const band = ageBand(profile.age);
 
   let pattern: SessionFocus[] = [];
 
-  if (sport === 'basketball' || goals.has('jump')) {
+  if (band === 'senior' || band === 'elder') {
+    pattern = ['lower_strength', 'upper_strength', 'core_mobility', 'full_athletic', 'conditioning', 'active_recovery', 'core_mobility'];
+  } else if (sport === 'basketball' || goals.has('jump')) {
     pattern = ['lower_power', 'upper_strength', 'speed_agility', 'sport_skill', 'conditioning', 'lower_strength', 'core_mobility'];
   } else if (sport === 'baseball') {
     pattern = ['lower_strength', 'sport_skill', 'upper_strength', 'speed_agility', 'core_mobility', 'full_athletic', 'conditioning'];
@@ -442,6 +597,7 @@ export function applyWeekProgression(plan: WorkoutPlan, week: number): WorkoutPl
 
 export function generateWorkoutPlan(profile: UserProfile): WorkoutPlan {
   const sport = getSportConfig(profile.sport);
+  const band = ageBand(profile.age);
   const focuses = chooseFocusPattern(profile);
   const layout = placeWorkoutDays(profile.daysPerWeek);
   const count = workoutExerciseCount(profile.duration);
@@ -481,13 +637,6 @@ export function generateWorkoutPlan(profile: UserProfile): WorkoutPlan {
       recentIds.push(ex.id);
     }
 
-    const warmIds = WARMUP_POOL.filter((id) => {
-      const ex = getExerciseById(id);
-      return ex && exerciseAvailable(ex, profile);
-    }).slice(0, profile.duration <= 15 ? 3 : 4);
-
-    const coolIds = COOLDOWN_POOL.slice(0, 3);
-
     return {
       dayIndex: slot.dayIndex,
       dayName,
@@ -496,8 +645,8 @@ export function generateWorkoutPlan(profile: UserProfile): WorkoutPlan {
       focus: meta.focus,
       warmUp: {
         title: 'Warm-Up',
-        durationMinutes: profile.duration <= 15 ? 3 : 5,
-        exercises: buildBlockFromIds(warmIds, profile),
+        durationMinutes: profile.duration <= 15 ? 3 : band === 'elder' ? 4 : 5,
+        exercises: buildWarmUpBlock(profile),
       },
       workout: {
         title: 'Workout',
@@ -506,7 +655,7 @@ export function generateWorkoutPlan(profile: UserProfile): WorkoutPlan {
       coolDown: {
         title: 'Cool-Down',
         durationMinutes: 5,
-        exercises: buildBlockFromIds(coolIds, profile),
+        exercises: buildCoolDownBlock(profile),
       },
     };
   });
@@ -515,7 +664,12 @@ export function generateWorkoutPlan(profile: UserProfile): WorkoutPlan {
     `A ${profile.daysPerWeek}-day ${profile.fitnessLevel} plan`,
     profile.sport === 'none' ? 'for general fitness' : `built around ${sport.label.toLowerCase()}`,
     `with ${profile.duration}-minute sessions`,
-  ];
+    band === 'elder' || band === 'senior'
+      ? 'scaled for joint-friendly training'
+      : band === 'mature'
+        ? 'with recovery-friendly pacing'
+        : null,
+  ].filter(Boolean);
 
   const progressionNotes = [
     'Weeks 1–4 gradually increase reps or sets on key exercises.',
@@ -527,6 +681,18 @@ export function generateWorkoutPlan(profile: UserProfile): WorkoutPlan {
   if (isYouth(profile.age)) {
     progressionNotes.unshift(
       'This plan stays age-appropriate: focus on form, athleticism, and recovery — not extreme training or dieting.',
+    );
+  } else if (band === 'elder') {
+    progressionNotes.unshift(
+      'Scaled for age 80+: shorter efforts, more rest, and low-impact choices. Comfort and balance come first.',
+    );
+  } else if (band === 'senior') {
+    progressionNotes.unshift(
+      'Scaled for age 65+: lower impact options, moderated volume, and extra recovery between sets.',
+    );
+  } else if (band === 'mature') {
+    progressionNotes.unshift(
+      'Pacing accounts for age 50+: solid strength work with a bit more recovery built in.',
     );
   }
 
