@@ -1,5 +1,5 @@
 import { EXERCISES, getExerciseById } from '../data/exercises';
-import { DAY_NAMES, getSportConfig } from '../data/sports';
+import { DAY_NAMES, defaultWorkoutDays, formatWorkoutDays, getSportConfig } from '../data/sports';
 import type {
   Equipment,
   Exercise,
@@ -643,39 +643,28 @@ function workoutExerciseCount(duration: number): number {
   return 7;
 }
 
-function placeWorkoutDays(daysPerWeek: number): { dayIndex: number; isWorkout: boolean; isActiveRecovery: boolean }[] {
-  // Distribute workout days across the week with rest spacing
+function resolveWorkoutDays(profile: UserProfile): number[] {
+  if (profile.daysPerWeek >= 7) return defaultWorkoutDays(7);
+  const picked = [...new Set(profile.workoutDays ?? [])]
+    .filter((day) => day >= 0 && day <= 6)
+    .sort((a, b) => a - b);
+  if (picked.length === profile.daysPerWeek) return picked;
+  return defaultWorkoutDays(profile.daysPerWeek);
+}
+
+function placeWorkoutDays(
+  profile: UserProfile,
+): { dayIndex: number; isWorkout: boolean; isActiveRecovery: boolean }[] {
+  const workoutIndexes = new Set(resolveWorkoutDays(profile));
   const slots = Array.from({ length: 7 }, (_, dayIndex) => ({
     dayIndex,
-    isWorkout: false,
+    isWorkout: workoutIndexes.has(dayIndex),
     isActiveRecovery: false,
   }));
 
-  if (daysPerWeek >= 7) {
-    // 6 hard + 1 active recovery
-    for (let i = 0; i < 7; i++) slots[i].isWorkout = true;
+  if (profile.daysPerWeek >= 7) {
+    for (const slot of slots) slot.isWorkout = true;
     slots[6].isActiveRecovery = true;
-    return slots;
-  }
-
-  const patterns: Record<number, number[]> = {
-    2: [0, 3],
-    3: [0, 2, 4],
-    4: [0, 1, 3, 5],
-    5: [0, 1, 3, 4, 6],
-    6: [0, 1, 2, 4, 5, 6],
-  };
-
-  const workoutIndexes = patterns[daysPerWeek] ?? patterns[3];
-  for (const i of workoutIndexes) slots[i].isWorkout = true;
-
-  // If 5–6 days, mark one non-primary as optional active recovery feel on a rest day when only 2 rest
-  if (daysPerWeek === 6) {
-    const rest = slots.find((s) => !s.isWorkout);
-    if (rest) {
-      rest.isActiveRecovery = true;
-      rest.isWorkout = true;
-    }
   }
 
   return slots;
@@ -707,7 +696,8 @@ export function generateWorkoutPlan(profile: UserProfile): WorkoutPlan {
   const sport = getSportConfig(profile.sport);
   const band = ageBand(profile.age);
   const focuses = chooseFocusPattern(profile);
-  const layout = placeWorkoutDays(profile.daysPerWeek);
+  const workoutDays = resolveWorkoutDays(profile);
+  const layout = placeWorkoutDays(profile);
   const count = workoutExerciseCount(profile.duration);
 
   let focusIdx = 0;
@@ -771,6 +761,7 @@ export function generateWorkoutPlan(profile: UserProfile): WorkoutPlan {
   const summaryParts = [
     `A ${profile.daysPerWeek}-day ${profile.fitnessLevel} plan`,
     profile.sport === 'none' ? 'for general fitness' : `built around ${sport.label.toLowerCase()}`,
+    `on ${formatWorkoutDays(workoutDays)}`,
     `with ${profile.duration}-minute sessions`,
     band === 'elder' || band === 'senior'
       ? 'scaled for joint-friendly training'

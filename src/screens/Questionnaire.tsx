@@ -11,6 +11,8 @@ import {
   GENDER_OPTIONS,
   GOALS,
   SPORTS,
+  WEEKDAY_OPTIONS,
+  defaultWorkoutDays,
   getSportConfig,
 } from '../data/sports';
 import { useApp } from '../hooks/useApp';
@@ -26,6 +28,7 @@ interface Draft {
   primaryFocus: string;
   equipment: Equipment[];
   daysPerWeek: number | null;
+  workoutDays: number[];
   duration: Duration | null;
   notes: string;
 }
@@ -40,6 +43,7 @@ const INITIAL: Draft = {
   primaryFocus: '',
   equipment: [],
   daysPerWeek: null,
+  workoutDays: [],
   duration: null,
   notes: '',
 };
@@ -49,15 +53,17 @@ function OptionGrid<T extends string | number>({
   value,
   multi,
   onSelect,
+  className,
 }: {
   options: { id: T; label: string; description?: string }[];
   value: T | T[] | null | '';
   multi?: boolean;
   onSelect: (id: T) => void;
+  className?: string;
 }) {
   const selected = Array.isArray(value) ? value : value !== null && value !== '' ? [value] : [];
   return (
-    <div className="option-grid">
+    <div className={`option-grid${className ? ` ${className}` : ''}`}>
       {options.map((opt) => {
         const isOn = selected.includes(opt.id);
         return (
@@ -100,11 +106,12 @@ export function Questionnaire() {
       'primary',
       'equipment',
       'days',
+      ...(draft.daysPerWeek === 7 ? [] : ['weekdays']),
       'duration',
       'notes',
     ] as const;
     return base;
-  }, [needsPosition]);
+  }, [needsPosition, draft.daysPerWeek]);
 
   const total = steps.length;
   const current = steps[step];
@@ -114,6 +121,17 @@ export function Questionnaire() {
       ...d,
       goals: d.goals.includes(id) ? d.goals.filter((g) => g !== id) : [...d.goals, id],
     }));
+  };
+
+  const toggleWeekday = (id: number) => {
+    setDraft((d) => {
+      const selected = d.workoutDays.includes(id);
+      if (selected) {
+        return { ...d, workoutDays: d.workoutDays.filter((day) => day !== id) };
+      }
+      if (d.daysPerWeek && d.workoutDays.length >= d.daysPerWeek) return d;
+      return { ...d, workoutDays: [...d.workoutDays, id].sort((a, b) => a - b) };
+    });
   };
 
   const toggleEquipment = (id: Equipment) => {
@@ -185,6 +203,12 @@ export function Questionnaire() {
           return false;
         }
         return true;
+      case 'weekdays':
+        if (draft.workoutDays.length !== draft.daysPerWeek) {
+          setError(`Pick exactly ${draft.daysPerWeek} days.`);
+          return false;
+        }
+        return true;
       case 'duration':
         if (!draft.duration) {
           setError('Choose a session length.');
@@ -210,6 +234,10 @@ export function Questionnaire() {
       primaryFocus: draft.primaryFocus.trim(),
       equipment: draft.equipment,
       daysPerWeek: draft.daysPerWeek as number,
+      workoutDays:
+        draft.daysPerWeek === 7
+          ? defaultWorkoutDays(7)
+          : [...draft.workoutDays].sort((a, b) => a - b),
       duration: draft.duration as Duration,
       notes: draft.notes.trim(),
       createdAt: new Date().toISOString(),
@@ -248,6 +276,7 @@ export function Questionnaire() {
     primary: 'Goals',
     equipment: 'Equipment',
     days: 'Schedule',
+    weekdays: 'Schedule',
     duration: 'Schedule',
     notes: 'Anything else',
   };
@@ -452,7 +481,34 @@ export function Questionnaire() {
           <OptionGrid
             options={DAY_OPTIONS.map((d) => ({ id: d, label: `${d} days` }))}
             value={draft.daysPerWeek}
-            onSelect={(id) => setDraft({ ...draft, daysPerWeek: id })}
+            onSelect={(id) =>
+              setDraft({
+                ...draft,
+                daysPerWeek: id,
+                workoutDays: defaultWorkoutDays(id),
+              })
+            }
+          />
+        </QuestionScreen>
+      )}
+
+      {current === 'weekdays' && (
+        <QuestionScreen
+          title="Which days do you want to work out?"
+          subtitle={`Pick ${draft.daysPerWeek} days. ${draft.workoutDays.length} of ${draft.daysPerWeek} selected.`}
+          onBack={back}
+          footer={
+            <Button size="lg" fullWidth onClick={next}>
+              Continue
+            </Button>
+          }
+        >
+          <OptionGrid
+            className="option-grid--weekdays"
+            options={WEEKDAY_OPTIONS}
+            value={draft.workoutDays}
+            multi
+            onSelect={toggleWeekday}
           />
         </QuestionScreen>
       )}

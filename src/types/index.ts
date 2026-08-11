@@ -49,6 +49,8 @@ export interface UserProfile {
   primaryFocus: string;
   equipment: Equipment[];
   daysPerWeek: number;
+  /** Monday=0 … Sunday=6. Older saved profiles may omit this. */
+  workoutDays?: number[];
   duration: Duration;
   notes: string;
   createdAt: string;

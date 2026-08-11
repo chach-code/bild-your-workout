@@ -340,6 +340,16 @@ h2 {
   }
 }
 
+.option-grid--weekdays {
+  grid-template-columns: 1fr 1fr;
+}
+
+@media (min-width: 720px) {
+  .option-grid--weekdays {
+    grid-template-columns: repeat(7, 1fr);
+  }
+}
+
 .option-chip {
   text-align: left;
   border-radius: 16px;

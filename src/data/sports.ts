@@ -231,6 +231,42 @@ export const EQUIPMENT_OPTIONS = [
 
 export const DAY_OPTIONS = [2, 3, 4, 5, 6, 7];
 
+export const DAY_NAMES = [
+  'Monday',
+  'Tuesday',
+  'Wednesday',
+  'Thursday',
+  'Friday',
+  'Saturday',
+  'Sunday',
+];
+
+export const WEEKDAY_OPTIONS = DAY_NAMES.map((label, id) => ({ id, label }));
+
+const DEFAULT_WORKOUT_DAYS: Record<number, number[]> = {
+  2: [0, 3],
+  3: [0, 2, 4],
+  4: [0, 1, 3, 5],
+  5: [0, 1, 3, 4, 6],
+  6: [0, 1, 2, 4, 5, 6],
+  7: [0, 1, 2, 3, 4, 5, 6],
+};
+
+export function defaultWorkoutDays(daysPerWeek: number): number[] {
+  return [...(DEFAULT_WORKOUT_DAYS[daysPerWeek] ?? DEFAULT_WORKOUT_DAYS[3])];
+}
+
+export function formatWorkoutDays(indexes: number[]): string {
+  const names = [...new Set(indexes)]
+    .filter((i) => i >= 0 && i <= 6)
+    .sort((a, b) => a - b)
+    .map((i) => DAY_NAMES[i]);
+  if (names.length === 0) return '';
+  if (names.length === 1) return names[0];
+  if (names.length === 2) return `${names[0]} and ${names[1]}`;
+  return `${names.slice(0, -1).join(', ')}, and ${names[names.length - 1]}`;
+}
+
 export const DURATION_OPTIONS = [
   { id: 15 as const, label: '15 minutes' },
   { id: 30 as const, label: '30 minutes' },
@@ -244,14 +280,4 @@ export const GENDER_OPTIONS = [
   { id: 'female' as const, label: 'Female' },
   { id: 'nonbinary' as const, label: 'Non-binary' },
   { id: 'prefer_not' as const, label: 'Prefer not to say' },
-];
-
-export const DAY_NAMES = [
-  'Monday',
-  'Tuesday',
-  'Wednesday',
-  'Thursday',
-  'Friday',
-  'Saturday',
-  'Sunday',
 ];
